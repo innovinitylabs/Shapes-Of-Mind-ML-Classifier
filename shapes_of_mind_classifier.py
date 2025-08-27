@@ -169,12 +169,23 @@ class ShapesOfMindClassifier:
             'actually', 'sincerely', 'authentically'
         ]
         
+        # Add genuine emotion indicators
+        genuine_emotion_indicators = [
+            'absolutely furious', 'deeply saddened', 'terrified',
+            'disgusting behavior', 'incredible surprise',
+            'makes me so happy', 'love this so much',
+            'feel neutral about', 'feel deeply'
+        ]
+        
         # Check for obvious sarcasm patterns
         text_lower = text.lower()
         obvious_sarcasm = any(indicator in text_lower for indicator in obvious_sarcasm_indicators)
         
         # Check for positive indicators that suggest genuine emotion
         has_positive_indicator = any(indicator in text_lower for indicator in positive_indicators)
+        
+        # Check for genuine emotion indicators
+        has_genuine_emotion = any(indicator in text_lower for indicator in genuine_emotion_indicators)
         
         # Get model predictions
         sarcasm_1 = self._detect_sarcasm_primary(text)
@@ -184,17 +195,17 @@ class ShapesOfMindClassifier:
         if obvious_sarcasm and not has_positive_indicator:
             final_sarcasm = True
             confidence = "high"
-        elif has_positive_indicator:
-            # If positive indicators are present, be more conservative about sarcasm
-            final_sarcasm = False  # Trust positive indicators over model disagreement
+        elif has_positive_indicator or has_genuine_emotion:
+            # If positive indicators or genuine emotion indicators are present, be conservative
+            final_sarcasm = False  # Trust indicators over model disagreement
             confidence = "medium"
         elif sarcasm_1 == sarcasm_2:
             final_sarcasm = sarcasm_1
             confidence = "high"
         else:
-            # If models disagree, be more aggressive about sarcasm detection
-            final_sarcasm = sarcasm_1 or sarcasm_2  # If either detects sarcasm, trust it
-            confidence = "medium"
+            # If models disagree, require higher confidence for sarcasm detection
+            final_sarcasm = sarcasm_1 and sarcasm_2  # Both models must agree
+            confidence = "low"
         
         return {
             "is_sarcastic": final_sarcasm,
@@ -202,7 +213,8 @@ class ShapesOfMindClassifier:
             "model_1_result": sarcasm_1,
             "model_2_result": sarcasm_2,
             "obvious_sarcasm": obvious_sarcasm,
-            "has_positive_indicator": has_positive_indicator
+            "has_positive_indicator": has_positive_indicator,
+            "has_genuine_emotion": has_genuine_emotion
         }
     
     def _classify_emotions(self, text: str) -> List[Dict[str, Any]]:
@@ -251,13 +263,18 @@ class ShapesOfMindClassifier:
             return "neutral"
         
         top_emotion = emotions[0]['label']
+        top_score = emotions[0]['score']
         
         if not is_sarcastic:
             return top_emotion
         
-        # Apply sarcasm corrections
-        corrected_emotion = self.sarcasm_corrections.get(top_emotion, top_emotion)
-        return corrected_emotion
+        # Apply sarcasm corrections only if confidence is high enough
+        if top_score > 0.7:  # High confidence threshold
+            corrected_emotion = self.sarcasm_corrections.get(top_emotion, top_emotion)
+            return corrected_emotion
+        else:
+            # Low confidence - return the original emotion
+            return top_emotion
     
     def analyze(self, text: str, verbose: bool = False) -> Dict[str, Any]:
         """
@@ -282,16 +299,27 @@ class ShapesOfMindClassifier:
         # Step 3: Apply sarcasm correction
         final_emotion = self._apply_sarcasm_correction(raw_emotions, sarcasm_result["is_sarcastic"])
         
+        # Calculate quality metrics
+        top_emotion_score = raw_emotions[0]['score'] if raw_emotions else 0.0
+        emotion_confidence = "high" if top_emotion_score > 0.8 else "medium" if top_emotion_score > 0.6 else "low"
+        
+        # Overall confidence based on both sarcasm and emotion confidence
+        overall_confidence = "high" if sarcasm_result["confidence"] == "high" and emotion_confidence == "high" else "medium"
+        
         # Prepare result
         result = {
             "text": text,
             "is_sarcastic": sarcasm_result["is_sarcastic"],
             "sarcasm_confidence": sarcasm_result["confidence"],
+            "emotion_confidence": emotion_confidence,
+            "overall_confidence": overall_confidence,
+            "top_emotion_score": top_emotion_score,
             "sarcasm_details": {
                 "model_1_primary": sarcasm_result["model_1_result"],
                 "model_2_secondary": sarcasm_result["model_2_result"],
                 "obvious_sarcasm": sarcasm_result.get("obvious_sarcasm", False),
-                "has_positive_indicator": sarcasm_result.get("has_positive_indicator", False)
+                "has_positive_indicator": sarcasm_result.get("has_positive_indicator", False),
+                "has_genuine_emotion": sarcasm_result.get("has_genuine_emotion", False)
             },
             "raw_emotions": raw_emotions[:5],  # Top 5 emotions
             "final_emotion": final_emotion,
@@ -310,7 +338,10 @@ class ShapesOfMindClassifier:
             print("🎭 Obvious sarcasm pattern detected!")
         if result['sarcasm_details'].get('has_positive_indicator', False):
             print("✅ Positive indicator detected (genuine emotion likely)")
-        print(f"🎯 Final Emotion: {result['final_emotion']}")
+        if result['sarcasm_details'].get('has_genuine_emotion', False):
+            print("🎯 Genuine emotion indicator detected")
+        print(f"🎯 Final Emotion: {result['final_emotion']} ({result['emotion_confidence']} confidence)")
+        print(f"📈 Overall Quality: {result['overall_confidence']} confidence")
         if result['correction_applied']:
             print(f"🔄 Correction Applied: {result['raw_emotions'][0]['label']} → {result['final_emotion']}")
         print(f"📊 Top Raw Emotions:")
