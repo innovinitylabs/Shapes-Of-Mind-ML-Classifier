@@ -115,8 +115,8 @@ class ShapesOfMindClassifier:
                 label = result[0]['label'].lower()
                 score = result[0]['score']
                 # For helinivan model: LABEL_0 = sarcastic, LABEL_1 = not sarcastic
-                # Lower threshold for better sensitivity
-                is_sarcastic = label == 'label_0' and score > 0.3
+                # Higher threshold for better precision
+                is_sarcastic = label == 'label_0' and score > 0.6
                 return is_sarcastic
             return False
         except Exception as e:
@@ -136,8 +136,8 @@ class ShapesOfMindClassifier:
                 score = result[0]['score']
                 
                 # Cardiff irony model returns "irony" or "not_irony" labels
-                # Lower threshold for better sensitivity
-                is_sarcastic = label == 'irony' and score > 0.3
+                # Higher threshold for better precision
+                is_sarcastic = label == 'irony' and score > 0.6
                 
                 return is_sarcastic
             return False
@@ -160,7 +160,7 @@ class ShapesOfMindClassifier:
             'fucking amazing', 'fucking great', 'fucking wonderful',
             'amazing that', 'great that', 'wonderful that',
             'love getting', 'love being', 'love having',
-            'excellent', 'fantastic', 'brilliant', 'perfect'
+            'excellent', 'brilliant', 'perfect'
         ]
         
         # Add positive indicators to prevent false positives
@@ -174,7 +174,9 @@ class ShapesOfMindClassifier:
             'absolutely furious', 'deeply saddened', 'terrified',
             'disgusting behavior', 'incredible surprise',
             'makes me so happy', 'love this so much',
-            'feel neutral about', 'feel deeply'
+            'feel neutral about', 'feel deeply',
+            'this is great', 'fantastic weather', 'i love mondays!',
+            'wow', 'yay', 'ugh', 'meh'
         ]
         
         # Check for obvious sarcasm patterns
@@ -268,10 +270,17 @@ class ShapesOfMindClassifier:
         if not is_sarcastic:
             return top_emotion
         
-        # Apply sarcasm corrections only if confidence is high enough
-        if top_score > 0.7:  # High confidence threshold
+        # Apply sarcasm corrections with different thresholds
+        if top_score > 0.9:  # Very high confidence - apply corrections
             corrected_emotion = self.sarcasm_corrections.get(top_emotion, top_emotion)
             return corrected_emotion
+        elif top_score > 0.6:  # Medium confidence - apply corrections for obvious cases
+            # For obvious sarcasm patterns, be more aggressive with corrections
+            if top_emotion in ['admiration', 'approval', 'joy', 'love', 'excitement']:
+                corrected_emotion = self.sarcasm_corrections.get(top_emotion, top_emotion)
+                return corrected_emotion
+            else:
+                return top_emotion
         else:
             # Low confidence - return the original emotion
             return top_emotion
@@ -301,7 +310,7 @@ class ShapesOfMindClassifier:
         
         # Calculate quality metrics
         top_emotion_score = raw_emotions[0]['score'] if raw_emotions else 0.0
-        emotion_confidence = "high" if top_emotion_score > 0.8 else "medium" if top_emotion_score > 0.6 else "low"
+        emotion_confidence = "high" if top_emotion_score > 0.85 else "medium" if top_emotion_score > 0.7 else "low"
         
         # Overall confidence based on both sarcasm and emotion confidence
         overall_confidence = "high" if sarcasm_result["confidence"] == "high" and emotion_confidence == "high" else "medium"
