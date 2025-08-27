@@ -44,7 +44,7 @@ class ShapesOfMindClassifier:
         # Initialize models
         self._load_models()
         
-        # Sarcasm correction rules
+        # Sarcasm correction rules - expanded for better coverage
         self.sarcasm_corrections = {
             'joy': 'anger',
             'optimism': 'anger', 
@@ -53,9 +53,15 @@ class ShapesOfMindClassifier:
             'excitement': 'anger',
             'amusement': 'anger',
             'admiration': 'anger',
+            'approval': 'anger',
+            'caring': 'anger',
+            'pride': 'anger',
+            'relief': 'anger',
+            'surprise': 'anger',
             'neutral': 'annoyance',
-            'approval': 'annoyance',
-            'realization': 'annoyance'
+            'realization': 'annoyance',
+            'confusion': 'annoyance',
+            'curiosity': 'annoyance'
         }
         
         print("✅ All models loaded successfully!")
@@ -109,7 +115,8 @@ class ShapesOfMindClassifier:
                 label = result[0]['label'].lower()
                 score = result[0]['score']
                 # For helinivan model: LABEL_0 = sarcastic, LABEL_1 = not sarcastic
-                is_sarcastic = label == 'label_0' and score > 0.5
+                # Lower threshold for better sensitivity
+                is_sarcastic = label == 'label_0' and score > 0.3
                 return is_sarcastic
             return False
         except Exception as e:
@@ -129,7 +136,8 @@ class ShapesOfMindClassifier:
                 score = result[0]['score']
                 
                 # Cardiff irony model returns "irony" or "not_irony" labels
-                is_sarcastic = label == 'irony' and score > 0.5
+                # Lower threshold for better sensitivity
+                is_sarcastic = label == 'irony' and score > 0.3
                 
                 return is_sarcastic
             return False
@@ -147,22 +155,54 @@ class ShapesOfMindClassifier:
         Returns:
             Dictionary with sarcasm detection results
         """
+        # Add rule-based sarcasm detection for obvious cases
+        obvious_sarcasm_indicators = [
+            'fucking amazing', 'fucking great', 'fucking wonderful',
+            'amazing that', 'great that', 'wonderful that',
+            'love getting', 'love being', 'love having',
+            'excellent', 'fantastic', 'brilliant', 'perfect'
+        ]
+        
+        # Add positive indicators to prevent false positives
+        positive_indicators = [
+            'genuinely', 'truly', 'really', 'honestly',
+            'actually', 'sincerely', 'authentically'
+        ]
+        
+        # Check for obvious sarcasm patterns
+        text_lower = text.lower()
+        obvious_sarcasm = any(indicator in text_lower for indicator in obvious_sarcasm_indicators)
+        
+        # Check for positive indicators that suggest genuine emotion
+        has_positive_indicator = any(indicator in text_lower for indicator in positive_indicators)
+        
+        # Get model predictions
         sarcasm_1 = self._detect_sarcasm_primary(text)
         sarcasm_2 = self._detect_sarcasm_secondary(text)
         
-        # Voting logic: if both agree, use that. If disagree, trust flan-t5
-        if sarcasm_1 == sarcasm_2:
+        # Enhanced voting logic with rule-based override
+        if obvious_sarcasm and not has_positive_indicator:
+            final_sarcasm = True
+            confidence = "high"
+        elif has_positive_indicator:
+            # If positive indicators are present, be more conservative about sarcasm
+            final_sarcasm = False  # Trust positive indicators over model disagreement
+            confidence = "medium"
+        elif sarcasm_1 == sarcasm_2:
             final_sarcasm = sarcasm_1
             confidence = "high"
         else:
-            final_sarcasm = sarcasm_1  # Trust flan-t5 as primary
+            # If models disagree, be more aggressive about sarcasm detection
+            final_sarcasm = sarcasm_1 or sarcasm_2  # If either detects sarcasm, trust it
             confidence = "medium"
         
         return {
             "is_sarcastic": final_sarcasm,
             "confidence": confidence,
             "model_1_result": sarcasm_1,
-            "model_2_result": sarcasm_2
+            "model_2_result": sarcasm_2,
+            "obvious_sarcasm": obvious_sarcasm,
+            "has_positive_indicator": has_positive_indicator
         }
     
     def _classify_emotions(self, text: str) -> List[Dict[str, Any]]:
@@ -248,8 +288,10 @@ class ShapesOfMindClassifier:
             "is_sarcastic": sarcasm_result["is_sarcastic"],
             "sarcasm_confidence": sarcasm_result["confidence"],
             "sarcasm_details": {
-                "model_1_flan_t5": sarcasm_result["model_1_result"],
-                "model_2_aventiq": sarcasm_result["model_2_result"]
+                "model_1_primary": sarcasm_result["model_1_result"],
+                "model_2_secondary": sarcasm_result["model_2_result"],
+                "obvious_sarcasm": sarcasm_result.get("obvious_sarcasm", False),
+                "has_positive_indicator": sarcasm_result.get("has_positive_indicator", False)
             },
             "raw_emotions": raw_emotions[:5],  # Top 5 emotions
             "final_emotion": final_emotion,
@@ -264,6 +306,10 @@ class ShapesOfMindClassifier:
     def _print_analysis(self, result: Dict[str, Any]) -> None:
         """Print detailed analysis results."""
         print(f"🎭 Sarcasm: {'Yes' if result['is_sarcastic'] else 'No'} ({result['sarcasm_confidence']} confidence)")
+        if result['sarcasm_details'].get('obvious_sarcasm', False):
+            print("🎭 Obvious sarcasm pattern detected!")
+        if result['sarcasm_details'].get('has_positive_indicator', False):
+            print("✅ Positive indicator detected (genuine emotion likely)")
         print(f"🎯 Final Emotion: {result['final_emotion']}")
         if result['correction_applied']:
             print(f"🔄 Correction Applied: {result['raw_emotions'][0]['label']} → {result['final_emotion']}")
