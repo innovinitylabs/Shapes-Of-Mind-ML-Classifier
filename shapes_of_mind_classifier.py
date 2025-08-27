@@ -169,14 +169,20 @@ class ShapesOfMindClassifier:
             'actually', 'sincerely', 'authentically'
         ]
         
-        # Add genuine emotion indicators
+        # Add genuine emotion indicators - EXPANDED FOR MOOD JOURNALING
         genuine_emotion_indicators = [
             'absolutely furious', 'deeply saddened', 'terrified',
             'disgusting behavior', 'incredible surprise',
             'makes me so happy', 'love this so much',
             'feel neutral about', 'feel deeply',
             'this is great', 'fantastic weather', 'i love mondays!',
-            'wow', 'yay', 'ugh', 'meh'
+            'wow', 'yay', 'ugh', 'meh',
+            # Mood journal specific indicators
+            'i feel happy', 'i am feeling', 'i feel sad', 'i feel excited',
+            'i am worried', 'i feel grateful', 'i am angry', 'i feel anxious',
+            'i had a great day', 'i feel lonely', 'i am proud', 'i feel overwhelmed',
+            'today was peaceful', 'i am frustrated', 'i feel hopeful',
+            'i feel', 'i am', 'today was', 'i had'
         ]
         
         # Check for obvious sarcasm patterns
@@ -193,7 +199,7 @@ class ShapesOfMindClassifier:
         sarcasm_1 = self._detect_sarcasm_primary(text)
         sarcasm_2 = self._detect_sarcasm_secondary(text)
         
-        # Enhanced voting logic with rule-based override
+        # Enhanced voting logic with rule-based override - OPTIMIZED FOR MOOD JOURNALING
         if obvious_sarcasm and not has_positive_indicator:
             final_sarcasm = True
             confidence = "high"
@@ -201,13 +207,14 @@ class ShapesOfMindClassifier:
             # If positive indicators or genuine emotion indicators are present, be conservative
             final_sarcasm = False  # Trust indicators over model disagreement
             confidence = "medium"
-        elif sarcasm_1 == sarcasm_2:
-            final_sarcasm = sarcasm_1
+        elif sarcasm_1 == sarcasm_2 and sarcasm_1 == True:
+            # Only trust sarcasm if both models agree AND it's sarcastic
+            final_sarcasm = True
             confidence = "high"
         else:
-            # If models disagree, require higher confidence for sarcasm detection
-            final_sarcasm = sarcasm_1 and sarcasm_2  # Both models must agree
-            confidence = "low"
+            # Default to NOT sarcastic for mood journaling (people are usually genuine)
+            final_sarcasm = False
+            confidence = "medium"
         
         return {
             "is_sarcastic": final_sarcasm,
@@ -270,11 +277,11 @@ class ShapesOfMindClassifier:
         if not is_sarcastic:
             return top_emotion
         
-        # Apply sarcasm corrections with different thresholds
+        # Apply sarcasm corrections with different thresholds - OPTIMIZED FOR MOOD JOURNALING
         if top_score > 0.9:  # Very high confidence - apply corrections
             corrected_emotion = self.sarcasm_corrections.get(top_emotion, top_emotion)
             return corrected_emotion
-        elif top_score > 0.6:  # Medium confidence - apply corrections for obvious cases
+        elif top_score > 0.8:  # High confidence - apply corrections for obvious cases
             # For obvious sarcasm patterns, be more aggressive with corrections
             if top_emotion in ['admiration', 'approval', 'joy', 'love', 'excitement']:
                 corrected_emotion = self.sarcasm_corrections.get(top_emotion, top_emotion)
@@ -282,7 +289,7 @@ class ShapesOfMindClassifier:
             else:
                 return top_emotion
         else:
-            # Low confidence - return the original emotion
+            # Low confidence - return the original emotion (preserve genuine emotions)
             return top_emotion
     
     def analyze(self, text: str, verbose: bool = False) -> Dict[str, Any]:
@@ -315,6 +322,11 @@ class ShapesOfMindClassifier:
         # Overall confidence based on both sarcasm and emotion confidence
         overall_confidence = "high" if sarcasm_result["confidence"] == "high" and emotion_confidence == "high" else "medium"
         
+        # Determine mood category for mood journaling
+        mood_category = "positive" if final_emotion in ['joy', 'love', 'gratitude', 'excitement', 'pride', 'hope', 'admiration', 'optimism'] else \
+                       "negative" if final_emotion in ['anger', 'sadness', 'fear', 'disgust', 'anxiety', 'frustration', 'loneliness', 'nervousness'] else \
+                       "neutral"
+        
         # Prepare result
         result = {
             "text": text,
@@ -323,6 +335,7 @@ class ShapesOfMindClassifier:
             "emotion_confidence": emotion_confidence,
             "overall_confidence": overall_confidence,
             "top_emotion_score": top_emotion_score,
+            "mood_category": mood_category,  # For mood journaling
             "sarcasm_details": {
                 "model_1_primary": sarcasm_result["model_1_result"],
                 "model_2_secondary": sarcasm_result["model_2_result"],
