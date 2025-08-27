@@ -1,24 +1,50 @@
-# Emotion Classifier
+# Shapes of Mind ML Classifier
 
-A Python implementation of the [j-hartmann/emotion-english-distilroberta-base](https://huggingface.co/j-hartmann/emotion-english-distilroberta-base) model for classifying emotions in English text.
+A sophisticated **3-model hybrid pipeline** for sarcasm-aware emotion classification. This system combines dual sarcasm detection with advanced emotion classification to provide contextually accurate emotional analysis.
 
-## Features
+## 🧠 Architecture
 
-- **7 Emotion Classification**: anger, disgust, fear, joy, neutral, sadness, surprise
-- **Easy-to-use API**: Simple Python class interface
-- **Batch Processing**: Efficiently process multiple texts
-- **Confidence Filtering**: Filter predictions by confidence threshold
-- **Comprehensive Analysis**: Get detailed emotion breakdowns
-- **Interactive Mode**: Test the classifier interactively
+### **3-Model Hybrid Pipeline:**
 
-## Setup
+1. **🎭 Sarcasm Detection Model #1** (Primary): [`bharatiyabytes/flan-t5-sarcasm`](https://huggingface.co/bharatiyabytes/flan-t5-sarcasm)
+2. **🎭 Sarcasm Detection Model #2** (Ensemble): [`AventIQ-AI/Sarcasmdetection`](https://huggingface.co/AventIQ-AI/Sarcasmdetection)  
+3. **😊 Emotion Classification**: [`SamLowe/roberta-base-go_emotions`](https://huggingface.co/SamLowe/roberta-base-go_emotions)
+
+### **🔄 Processing Logic:**
+
+```mermaid
+graph TD
+    A[Input Text] --> B[Sarcasm Model 1]
+    A --> C[Sarcasm Model 2]
+    B --> D{Both Agree?}
+    C --> D
+    D -->|Yes| E[Use Consensus]
+    D -->|No| F[Trust Model 1]
+    E --> G[Emotion Classification]
+    F --> G
+    G --> H{Is Sarcastic?}
+    H -->|No| I[Return Raw Emotion]
+    H -->|Yes| J[Apply Sarcasm Correction]
+    J --> K[Return Corrected Emotion]
+```
+
+## ✨ Features
+
+- **🎭 Dual Sarcasm Detection**: Ensemble approach for robust sarcasm identification
+- **😊 27+ Emotion Classification**: Based on Google's GoEmotions dataset
+- **🔄 Sarcasm-Aware Correction**: Intelligent emotion reinterpretation for sarcastic content
+- **📊 Batch Processing**: Efficient analysis of multiple texts
+- **🔍 Detailed Analysis**: Comprehensive JSON output with confidence scores
+- **💬 Interactive Testing**: Real-time text analysis interface
+
+## 🚀 Setup
 
 ### 1. Create Virtual Environment
 
 ```bash
 # Create virtual environment using pyenv
-pyenv virtualenv 3.11 emotion-classifier
-pyenv activate emotion-classifier
+pyenv virtualenv 3.11 shapes-of-mind
+pyenv activate shapes-of-mind
 ```
 
 ### 2. Install Dependencies
@@ -27,114 +53,147 @@ pyenv activate emotion-classifier
 pip install -r requirements.txt
 ```
 
-## Usage
+## 📖 Usage
 
-### Basic Usage
+### Basic Analysis
 
 ```python
-from emotion_classifier import EmotionClassifier
+from shapes_of_mind_classifier import ShapesOfMindClassifier
 
 # Initialize the classifier
-classifier = EmotionClassifier()
+classifier = ShapesOfMindClassifier()
 
-# Classify a single text
-emotion = classifier.predict_emotion("I love this!")
-print(emotion)  # "joy"
-
-# Get all emotion scores
-scores = classifier.predict("I love this!")
-print(scores)
-# [{'label': 'joy', 'score': 0.977}, ...]
+# Analyze text
+result = classifier.analyze("Oh great, another Monday morning!")
+print(result['final_emotion'])  # 'anger' (corrected from 'joy')
 ```
 
-### Advanced Usage
+### Complete Analysis
 
 ```python
-# Confidence-based prediction
-result = classifier.predict_with_confidence(
-    "This is okay I guess", 
-    confidence_threshold=0.7
-)
-print(result['confident'])  # True/False
+# Get detailed analysis
+result = classifier.analyze("I just LOVE waiting in traffic!", verbose=True)
 
-# Batch processing
-texts = ["I'm happy!", "This is terrible", "Wow, surprising!"]
-results = classifier.batch_predict(texts)
-
-# Comprehensive analysis
-analysis = classifier.analyze_text("I'm scared!", verbose=True)
+# JSON output structure:
+{
+  "text": "I just LOVE waiting in traffic!",
+  "is_sarcastic": true,
+  "sarcasm_confidence": "high",
+  "raw_emotions": [
+    {"label": "joy", "score": 0.85},
+    {"label": "optimism", "score": 0.12},
+    ...
+  ],
+  "final_emotion": "anger",  # Corrected due to sarcasm
+  "correction_applied": true
+}
 ```
 
-## Running Tests
+### Batch Processing
 
-### Automated Tests
+```python
+texts = [
+    "I love this new policy!",        # Could be sarcastic
+    "This weather is perfect.",       # Could be sarcastic  
+    "I'm genuinely excited!"          # Likely genuine
+]
+
+results = classifier.batch_analyze(texts, verbose=True)
+```
+
+## 🧪 Testing
+
+### Run Test Suite
 ```bash
-python test_classifier.py
+python test_shapes_classifier.py
 ```
 
 ### Interactive Testing
 ```bash
-python test_classifier.py
-# Choose 'y' when prompted for interactive mode
+python test_shapes_classifier.py
+# Choose 'y' for interactive mode
 ```
 
 ### Demo
 ```bash
-python emotion_classifier.py
+python shapes_of_mind_classifier.py
 ```
 
-## Model Information
+## 🎯 Model Information
 
-- **Model**: [j-hartmann/emotion-english-distilroberta-base](https://huggingface.co/j-hartmann/emotion-english-distilroberta-base)
-- **Base Architecture**: DistilRoBERTa
-- **Training Data**: 6 diverse datasets (~20k observations)
-- **Emotions**: Ekman's 6 basic emotions + neutral
-- **Accuracy**: 66% on evaluation set
+### **Sarcasm Detection Models**
+- **Primary**: `bharatiyabytes/flan-t5-sarcasm` (Text-to-text generation)
+- **Secondary**: `AventIQ-AI/Sarcasmdetection` (Classification)
 
-### Emotion Categories
+### **Emotion Classification Model**  
+- **Model**: `SamLowe/roberta-base-go_emotions`
+- **Base**: RoBERTa-base
+- **Emotions**: 27+ emotions from Google's GoEmotions dataset
+- **Training**: 58k carefully curated comments
 
-1. **anger** 🤬 - Feeling angry or mad
-2. **disgust** 🤢 - Feeling disgusted or repulsed  
-3. **fear** 😨 - Feeling scared or afraid
-4. **joy** 😀 - Feeling happy or joyful
-5. **neutral** 😐 - No strong emotion
-6. **sadness** 😭 - Feeling sad or down
-7. **surprise** 😲 - Feeling surprised or shocked
+### **Sarcasm Correction Rules**
+When sarcasm is detected, specific emotions are reinterpreted:
 
-## Files
+| Original Emotion | Corrected Emotion | Reasoning |
+|-----------------|------------------|-----------|
+| joy, optimism, gratitude | anger | Positive emotions often inverted in sarcasm |
+| neutral, approval | annoyance | Mild emotions become irritation |
+| admiration, excitement | anger | Enthusiastic emotions become frustration |
 
-- `emotion_classifier.py` - Main classifier implementation
-- `test_classifier.py` - Test script with examples
-- `requirements.txt` - Python dependencies
+## 📁 Files
+
+- `shapes_of_mind_classifier.py` - Main hybrid classifier implementation
+- `test_shapes_classifier.py` - Comprehensive test suite
+- `requirements.txt` - Python dependencies  
 - `README.md` - This documentation
 
-## Requirements
+## 🔧 Requirements
 
-- Python 3.8+
-- PyTorch 2.0+
-- Transformers 4.21+
-- NumPy 1.21+
+- **Python**: 3.8+
+- **PyTorch**: 2.0+
+- **Transformers**: 4.21+
+- **NumPy**: 1.21+
+- **SciPy**: 1.9.0+
+- **Scikit-learn**: 1.1.0+
 
-## Citation
+## 📊 Performance Notes
 
-If you use this model in your research, please cite:
+- **First Run**: Downloads ~800MB of models (cached locally)
+- **GPU Support**: Automatic CUDA detection and utilization
+- **Processing Speed**: ~200-500ms per text (CPU), ~50-100ms (GPU)
+- **Memory Usage**: ~2-3GB RAM for all three models
 
-```bibtex
-@misc{hartmann2022emotionenglish,
-  author={Hartmann, Jochen},
-  title={Emotion English DistilRoBERTa-base},
-  year={2022},
-  howpublished = {\url{https://huggingface.co/j-hartmann/emotion-english-distilroberta-base/}},
-}
+## 🎯 Use Cases
+
+- **Social Media Analysis**: Detecting sarcasm in tweets, comments
+- **Customer Feedback**: Understanding true sentiment behind reviews  
+- **Content Moderation**: Identifying disguised negative sentiment
+- **Market Research**: Analyzing authentic vs. sarcastic responses
+- **Chatbot Training**: Improving response appropriateness
+
+## 🔬 Example Outputs
+
+```python
+# Sarcastic text
+"Oh wonderful, another software update!" 
+→ Sarcasm: True | Final: anger (was joy)
+
+# Genuine text  
+"I'm genuinely excited about this project!"
+→ Sarcasm: False | Final: joy (unchanged)
+
+# Ambiguous text
+"This is totally fine."
+→ Sarcasm: depends on models | Final: varies
 ```
 
-## License
+## 📄 License
 
-This implementation is provided as-is. Please refer to the original model's license on Hugging Face.
+This implementation is provided as-is. Please refer to the original models' licenses on Hugging Face.
 
-## Notes
+## 🙏 Acknowledgments
 
-- First run will download the model (~250MB)
-- GPU acceleration available if CUDA is installed
-- Model performs best on English text
-- Optimized for social media and conversational text
+- **bharatiyabytes** for the FLAN-T5 sarcasm detection model
+- **AventIQ-AI** for the ensemble sarcasm detection model  
+- **SamLowe** for the GoEmotions RoBERTa implementation
+- **Google Research** for the original GoEmotions dataset
